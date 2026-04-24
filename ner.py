@@ -43,7 +43,3 @@ def get_fixed_chunks(text, chunk_size=500, overlap_pct=0.1):
             break
             
     return chunks
-
-
-smt = "an abbreviation for percentage, a mathematical ratio representing a fraction of 100"
-get_fixed_chunks(smt)
