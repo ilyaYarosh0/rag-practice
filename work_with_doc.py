@@ -3,7 +3,6 @@ import hashlib
 
 def get_full_text(file_path):
     doc = docx.Document(file_path)
-    # Собираем текст каждого абзаца в список и склеиваем через \n
     full_text = "\n".join([para.text for para in doc.paragraphs])
     return full_text
 
@@ -26,7 +25,7 @@ def parse_doc_to_paragraph_chunks(file_path):
 
     for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
-
+        print(f"{i} {para.text}\n\n")
         if len(text) !=0:
             buf_paragraph += text + " "
         else:
@@ -64,31 +63,49 @@ def recursive_chunking(text, chunk_size=500, overlap_pct=0.1,separators=None):
     if separators is None:
         separators = ["\n\n", "\n", " ", ""]
 
-    chunks = []
-
     if len(text) <= chunk_size:
-        chunks.append(text)
-        return chunks
+        return [text]
     
     for i, sep in enumerate(separators):
         if sep in text:
             raw_text = text.split(sep)
-            all_fragments=[]
-            for splitted_text in raw_text:
-                all_fragments.extend(recursive_chunking(splitted_text, chunk_size, overlap_pct, separators[i+1:]))         
-            curent_len =0
+            curent_len = 0
             curent_doc = []
-            for f in all_fragments:
+            chunks = []
+            
+            for f in raw_text:
+                # Если фрагмент больше лимита, обрабатываем его рекурсивно отдельно
+                if len(f) > chunk_size:
+                    # Сбрасываем накопленную очередь перед вставкой рекурсивных чанков
+                    if curent_doc:
+                        chunks.append(sep.join(curent_doc))
+                        curent_doc = []
+                        curent_len = 0
+                    
+                    # Готовые чанки добавляем напрямую в массив, без повторного join
+                    chunks.extend(recursive_chunking(f, chunk_size, overlap_pct, separators[i+1:]))
+                    continue
 
                 if curent_len + len(f) + len(sep) > chunk_size:
-                    chunks.append(sep.join(curent_doc))
+                    full_chunk = sep.join(curent_doc)
+                    chunks.append(full_chunk)
 
                     overlap_size =int(curent_len*overlap_pct)
-                    while curent_len > overlap_size:
-                        removed = curent_doc.pop(0)
-                        curent_len-= len(removed)
-                        if curent_doc:
-                            curent_len -=len(sep)
+                    
+                    words = full_chunk.split(" ")
+                    tail_words = []
+                    tail_len = 0
+                    for word in reversed(words):
+                        word_len = len(word) + (1 if tail_words else 0)
+                        if tail_len + word_len > overlap_size and tail_words:
+                            break
+                        tail_words.insert(0, word)
+                        tail_len +=word_len
+                    overlap_text = " ".join(tail_words)
+
+                    curent_doc = [overlap_text] if overlap_text else []
+                    curent_len = len(overlap_text)
+
                 if curent_doc:
                     curent_len +=len(sep)
                 curent_doc.append(f)
@@ -101,16 +118,28 @@ def recursive_chunking(text, chunk_size=500, overlap_pct=0.1,separators=None):
 
     return [text[:chunk_size]]
 
+def get_metadata_for_recursive_chunking(raw_text, chunk_size=500, overlap_pct=0.1,separators=None):
+
+    raw_chunks = recursive_chunking(
+        text=raw_text, 
+        chunk_size=chunk_size, 
+        overlap_pct=overlap_pct, 
+        separators=separators
+        )
+    
+    final_chunk = []
+    for i, chunk_text in enumerate(raw_chunks):
+
+        pass
+
+    return final_chunk
 #path = r'C:\Users\user\Documents\A_dinner_party.docx'
-path = r'receipts.docx'
+path = r'Kursach.docx'
 
 raw_text = get_full_text(path)
+#chunks = recursive_chunking(raw_text)
 chunks = recursive_chunking(raw_text)
-# result= parse_doc_to_paragraph_chunks(path)
-# for chunk in result:
-#     print(f"Document ID: {result[0]['document_id']}")
-#     print(f"Paragraph ID: {chunk['paragraph_id']}")
-#     print(f"Content: {chunk['text']}")
+
 print(f"ОБРАБОТКА ФАЙЛА: {path}")
 print(f"Общая длина текста: {len(raw_text)} симв.")
 print(f"Количество созданных чанков: {len(chunks)}")
@@ -119,5 +148,5 @@ print("=" * 50)
 for i, chunk_text in enumerate(chunks):
     print(f"ЧАНК #{i + 1} | Размер: {len(chunk_text)} симв.")
     print("-" * 30)
-    print(chunk_text) # Сам текст чанка
+    print(chunk_text)
     print("=" * 50)
