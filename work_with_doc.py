@@ -59,64 +59,61 @@ def parse_doc_to_paragraph_chunks(file_path):
                 chunks.append(chunk_data)
     return chunks
 
-def recursive_chunking(text, chunk_size=500, overlap_pct=0.1,separators=None):
-    if separators is None:
-        separators = ["\n\n", "\n", " ", ""]
 
-    if len(text) <= chunk_size:
+def _split_to_atoms(text, chunk_size, separators):
+
+    if len(text) <= chunk_size or not separators:
         return [text]
     
-    for i, sep in enumerate(separators):
-        if sep in text:
-            raw_text = text.split(sep)
-            curent_len = 0
-            curent_doc = []
-            chunks = []
+    sep = separators[0]
+    if sep not in text:
+        return _split_to_atoms(text, chunk_size, separators[1:])
+    
+    parts = text.split(sep)
+    atoms = []
+    for p in parts:
+        if len(p) > chunk_size:
+            atoms.extend(_split_to_atoms(p, chunk_size, separators[1:]))
+        elif p.strip():
+            atoms.append(p + sep)
+    return atoms
+
+def get_chunks(text, chunk_size=500, overlap_pct=0.2):
+    separators = ["\n\n", "\n", ". ", " ", ""]
+    overlap_size = int(chunk_size * overlap_pct)
+
+    atoms = _split_to_atoms(text, chunk_size, separators)
+    
+    chunks = []
+    current_chunk = ""
+    
+    for atom in atoms:
+        if len(current_chunk) + len(atom) <= chunk_size:
+            current_chunk += atom
+        else:
+            if current_chunk:
+                chunks.append(current_chunk.strip())
             
-            for f in raw_text:
-                # Если фрагмент больше лимита, обрабатываем его рекурсивно отдельно
-                if len(f) > chunk_size:
-                    # Сбрасываем накопленную очередь перед вставкой рекурсивных чанков
-                    if curent_doc:
-                        chunks.append(sep.join(curent_doc))
-                        curent_doc = []
-                        curent_len = 0
-                    
-                    # Готовые чанки добавляем напрямую в массив, без повторного join
-                    chunks.extend(recursive_chunking(f, chunk_size, overlap_pct, separators[i+1:]))
-                    continue
+            raw_ov = current_chunk[-overlap_size:]
 
-                if curent_len + len(f) + len(sep) > chunk_size:
-                    full_chunk = sep.join(curent_doc)
-                    chunks.append(full_chunk)
-
-                    overlap_size =int(curent_len*overlap_pct)
-                    
-                    words = full_chunk.split(" ")
-                    tail_words = []
-                    tail_len = 0
-                    for word in reversed(words):
-                        word_len = len(word) + (1 if tail_words else 0)
-                        if tail_len + word_len > overlap_size and tail_words:
-                            break
-                        tail_words.insert(0, word)
-                        tail_len +=word_len
-                    overlap_text = " ".join(tail_words)
-
-                    curent_doc = [overlap_text] if overlap_text else []
-                    curent_len = len(overlap_text)
-
-                if curent_doc:
-                    curent_len +=len(sep)
-                curent_doc.append(f)
-                curent_len += len(f)
+            break_point = -1
+            for s in ["\n", " ", "."]:
+                pos = raw_ov.find(s)
+                if pos != -1 and (break_point == -1 or pos < break_point):
+                    break_point = pos
             
-            if curent_doc:
-                chunks.append(sep.join(curent_doc))
-            
-            return chunks
+            overlap_text = raw_ov[break_point:].lstrip() if break_point != -1 else raw_ov
+            current_chunk = overlap_text + atom
 
-    return [text[:chunk_size]]
+    if current_chunk:
+        last_str = current_chunk.strip()
+        if chunks and len(last_str) < (chunk_size * 0.25):
+            chunks[-1] = chunks[-1] + "\n" + last_str
+        else:
+            chunks.append(last_str)
+            
+    return chunks
+
 
 def get_metadata_for_recursive_chunking(raw_text, chunk_size=500, overlap_pct=0.1,separators=None):
 
@@ -137,8 +134,8 @@ def get_metadata_for_recursive_chunking(raw_text, chunk_size=500, overlap_pct=0.
 path = r'Kursach.docx'
 
 raw_text = get_full_text(path)
-#chunks = recursive_chunking(raw_text)
-chunks = recursive_chunking(raw_text)
+
+chunks = get_chunks(raw_text)
 
 print(f"ОБРАБОТКА ФАЙЛА: {path}")
 print(f"Общая длина текста: {len(raw_text)} симв.")
