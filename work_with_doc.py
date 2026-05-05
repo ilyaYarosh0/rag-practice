@@ -224,23 +224,46 @@ def get_chunks(text: str, chunk_size: int = 500, overlap_pct: float = 0.2) -> li
             
     return chunks
 
+def process_folder(folder_path: str):
+    """
+    Сканирует папку, обрабатывает все docx файлы и собирает данные 
+    для пакетной загрузки в ChromaDB.
+    """
 
-#path = r'C:\Users\user\Documents\A_dinner_party.docx'
-path = r'Kursach.docx'
+    all_texts=[]
+    all_metadatas =[]
+    all_ids = []
+    files = [f for f in os.listdir(folder_path) if f.endswith('.docx')]
 
-# raw_text = get_full_text(path)
+    for file_name in files:
+        file_path = os.path.join(folder_path, file_name)
+        raw_chunks = chunk_by_docx(file_path)
+        process_chunks = get_metadata(raw_chunks, file_path)
 
-# chunks = get_chunks(raw_text)
-raw_chunk = chunk_by_docx(path)
-chunks = get_metadata(raw_chunk, path)
-print(f"ОБРАБОТКА ФАЙЛА: {path}")
-print(f"Количество созданных чанков: {len(chunks)}")
-print("=" * 50)
+        for chunk in process_chunks:
+            all_texts.append(chunk['chunk_text'])
+            all_metadatas.append(chunk['metadata'])
+            all_ids.append(chunk['metadata']['chunk_id'])
 
-for i, chunk_obj in enumerate(chunks):
-    chunk_text = chunk_obj["chunk_text"]
-    metadata = chunk_obj["metadata"]
-    print(f"ЧАНК #{i + 1} | Размер: {len(chunk_text)} симв. metadata: {metadata}")
-    print("-" * 30)
-    print(chunk_text)
+    return all_texts, all_metadatas, all_ids
+
+if __name__ == "__main__":
+    #path = r'C:\Users\user\Documents\A_dinner_party.docx'
+    path = r'Kursach.docx'
+
+    # raw_text = get_full_text(path)
+
+    # chunks = get_chunks(raw_text)
+    raw_chunk = chunk_by_docx(path)
+    chunks = get_metadata(raw_chunk, path)
+    print(f"ОБРАБОТКА ФАЙЛА: {path}")
+    print(f"Количество созданных чанков: {len(chunks)}")
     print("=" * 50)
+
+    for i, chunk_obj in enumerate(chunks):
+        chunk_text = chunk_obj["chunk_text"]
+        metadata = chunk_obj["metadata"]
+        print(f"ЧАНК #{i + 1} | Размер: {len(chunk_text)} симв. metadata: {metadata}")
+        print("-" * 30)
+        print(chunk_text)
+        print("=" * 50)
