@@ -17,7 +17,7 @@ collection = client.get_or_create_collection(
 
 if collection.count() ==0:
     print("База пуста. Начинаю загрузку документов...")
-    documents, metadatas, ids = process_folder(FOLDER_PATH)
+    documents, metadatas, ids = process_folder(FOLDER_PATH, 50, 0)
     collection.add(documents=documents, metadatas=metadatas, ids=ids)
 else: 
     print(f"База готова. В коллекции уже {collection.count()} записей.")
@@ -35,21 +35,21 @@ while True:
     #         print("Ошибка: введено не число. Поиск будет выполнен по всем чанкам")
     #         where_condition = None
 
-    raw_input = input("\nВведите фильтр в формате Ключ:Значение, Ключ:Значение ")
-    where_condition= None
-    condition_query_list= []
-    if raw_input.strip():
-        splitted_input = raw_input.split(",")
-        for filter_input in splitted_input: 
-            parts= filter_input.split(":")
-            if len(parts) ==2:
-                filter_key = parts[0].strip()
-                filter_value = parts[1].strip()
-                condition_query_list.append({filter_key: {"$contains": filter_value}})
-        if len(condition_query_list) == 1:
-            where_condition = condition_query_list[0]
-        elif len(condition_query_list) > 1:
-            where_condition = {"$and": condition_query_list}
+    # raw_input = input("\nВведите фильтр в формате Ключ:Значение, Ключ:Значение ")
+    # where_condition= None
+    # condition_query_list= []
+    # if raw_input.strip():
+    #     splitted_input = raw_input.split(",")
+    #     for filter_input in splitted_input: 
+    #         parts= filter_input.split(":")
+    #         if len(parts) ==2:
+    #             filter_key = parts[0].strip()
+    #             filter_value = parts[1].strip()
+    #             condition_query_list.append({filter_key: {"$contains": filter_value}})
+    #     if len(condition_query_list) == 1:
+    #         where_condition = condition_query_list[0]
+    #     elif len(condition_query_list) > 1:
+    #         where_condition = {"$and": condition_query_list}
 
     user_query = input("\nТвой запрос (или 'exit'): ")
     
@@ -59,11 +59,11 @@ while True:
     results = collection.query(
         query_texts=[user_query],
         n_results= 5,
-        where = where_condition, 
+        #where = where_condition, 
         include=["documents", "distances", "metadatas"] 
     )
 
-    print("\n--- РЕЙТИНГ ОТВЕТОВ (Дистанция) ---")
+    print("\n--- РЕЙТИНГ ОТВЕТОВ (Сходимость) ---")
     
     for i in range(len(results['ids'][0])):
         chunk_id = results['ids'][0][i] 
@@ -80,7 +80,7 @@ while True:
         chunk_text = results['documents'][0][i]
 
         print(f"{i+1}. ID: {chunk_id}")
-        print(f"   Сходимость: {similarity:.4f} (Дистанция: {distance:.4f})")
+        print(f"   Сходимость: {similarity:.4f}")
         print(f"   Файл: {source_file} | Параграф: {start_para} | DocID: {doc_id}")
         
         # Печатаем только нужный текст

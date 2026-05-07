@@ -130,16 +130,18 @@ def chunk_by_docx(file_path: str, chunk_size: int = 500, overlap_pct: float = 0.
                         "text": current_chunk.strip(),
                         "start_paragraph": current_start_para
                                    })
-                
-                raw_ov = current_chunk[-overlap_size:]
+                if overlap_size == 0:
+                    overlap_text = ""
+                else:
+                    raw_ov = current_chunk[-overlap_size:]
 
-                break_point = -1
-                for s in ["\n", " ", "."]:
-                    pos = raw_ov.find(s)
-                    if pos != -1 and (break_point == -1 or pos < break_point):
-                        break_point = pos
-                
-                overlap_text = raw_ov[break_point:].lstrip() if break_point != -1 else raw_ov
+                    break_point = -1
+                    for s in ["\n", " ", "."]:
+                        pos = raw_ov.find(s)
+                        if pos != -1 and (break_point == -1 or pos < break_point):
+                            break_point = pos
+                    
+                    overlap_text = raw_ov[break_point:].lstrip() if break_point != -1 else raw_ov
                 current_chunk = overlap_text + atom
                 current_start_para = i+1
 
@@ -224,7 +226,7 @@ def get_chunks(text: str, chunk_size: int = 500, overlap_pct: float = 0.2) -> li
             
     return chunks
 
-def process_folder(folder_path: str):
+def process_folder(folder_path: str, chunk_size: int = 500, overlap_pct: float = 0.2, separators: list[str]= None):
     """
     Сканирует папку, обрабатывает все docx файлы и собирает данные 
     для пакетной загрузки в ChromaDB.
@@ -237,7 +239,7 @@ def process_folder(folder_path: str):
 
     for file_name in files:
         file_path = os.path.join(folder_path, file_name)
-        raw_chunks = chunk_by_docx(file_path)
+        raw_chunks = chunk_by_docx(file_path, chunk_size, overlap_pct, separators)
         process_chunks = get_metadata(raw_chunks, file_path)
 
         for chunk in process_chunks:
